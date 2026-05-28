@@ -18,6 +18,13 @@ type Room struct {
 	Users []UserID
 }
 
+type RoomNotification struct {
+	Type   string   `json:"type"` // "join", "leave"
+	UserID UserID   `json:"user_id"`
+	RoomID RoomID   `json:"room_id"`
+	Peers  []UserID `json:"peers,omitempty"`
+}
+
 // RoomRepository defines the storage interface for room state
 type RoomRepository interface {
 	Join(ctx context.Context, roomID RoomID, userID UserID) (peers []UserID, err error)
