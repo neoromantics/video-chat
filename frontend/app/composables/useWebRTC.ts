@@ -19,58 +19,67 @@ export const useWebRTC = () => {
     try {
       console.log('[WebRTC] Initializing media...')
       store.localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true })
-      connectWS()
+      await connectWS()
     } catch (err) {
       console.error('[WebRTC] Media error:', err)
     }
   }
 
   const connectWS = () => {
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-    const wsUrl = process.dev 
-      ? `ws://${window.location.hostname}:8080/ws`
-      : `${protocol}//${window.location.host}/ws`
-    
-    console.log('[WebRTC] Connecting to WebSocket:', wsUrl)
-    ws = new WebSocket(wsUrl)
-
-    ws.onopen = () => console.log('[WebRTC] WebSocket connected')
-    ws.onerror = (err) => console.error('[WebRTC] WebSocket error:', err)
-
-    ws.onmessage = async (event) => {
-      const msg = JSON.parse(event.data)
-      console.log('[WebRTC] Received message:', msg.type, msg.from || '')
+    return new Promise<void>((resolve, reject) => {
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+      const wsUrl = process.dev 
+        ? `ws://${window.location.hostname}:8080/ws`
+        : `${protocol}//${window.location.host}/ws`
       
-      switch (msg.type) {
-        case 'welcome':
-          console.log('[WebRTC] Your UserID:', msg.payload.user_id)
-          store.setUserId(msg.payload.user_id)
-          break
-        case 'joined_room':
-          console.log('[WebRTC] Joined room:', msg.payload.room_id, 'with peers:', msg.payload.peers)
-          store.setJoined(msg.payload.room_id)
-          if (msg.payload.peers && msg.payload.peers.length > 0) {
-            // Wait 500ms to ensure others are ready for signaling
-            setTimeout(async () => {
-              for (const peerId of msg.payload.peers) {
-                if (peerId !== store.userId) {
-                  await initiateCall(peerId)
-                }
-              }
-            }, 500)
-          }
-          break
-        case 'peer_joined':
-          if (msg.payload.roomId === store.roomId && msg.payload.peerId !== store.userId) {
-            console.log('[WebRTC] New peer joined:', msg.payload.peerId)
-            store.addPeer(msg.payload.peerId)
-          }
-          break
-        case 'signal':
-          handleSignal(msg)
-          break
+      console.log('[WebRTC] Connecting to WebSocket:', wsUrl)
+      ws = new WebSocket(wsUrl)
+
+      ws.onopen = () => {
+        console.log('[WebRTC] WebSocket connected')
+        resolve()
       }
-    }
+      
+      ws.onerror = (err) => {
+        console.error('[WebRTC] WebSocket error:', err)
+        reject(err)
+      }
+
+      ws.onmessage = async (event) => {
+        const msg = JSON.parse(event.data)
+        console.log('[WebRTC] Received message:', msg.type, msg.from || '')
+        
+        switch (msg.type) {
+          case 'welcome':
+            console.log('[WebRTC] Your UserID:', msg.payload.user_id)
+            store.setUserId(msg.payload.user_id)
+            break
+          case 'joined_room':
+            console.log('[WebRTC] Joined room:', msg.payload.room_id, 'with peers:', msg.payload.peers)
+            store.setJoined(msg.payload.room_id)
+            if (msg.payload.peers && msg.payload.peers.length > 0) {
+              // Wait 500ms to ensure others are ready for signaling
+              setTimeout(async () => {
+                for (const peerId of msg.payload.peers) {
+                  if (peerId !== store.userId) {
+                    await initiateCall(peerId)
+                  }
+                }
+              }, 500)
+            }
+            break
+          case 'peer_joined':
+            if (msg.payload.roomId === store.roomId && msg.payload.peerId !== store.userId) {
+              console.log('[WebRTC] New peer joined:', msg.payload.peerId)
+              store.addPeer(msg.payload.peerId)
+            }
+            break
+          case 'signal':
+            handleSignal(msg)
+            break
+        }
+      }
+    })
   }
 
   const initiateCall = async (peerId: string) => {
