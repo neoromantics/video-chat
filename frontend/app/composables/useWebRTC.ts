@@ -28,18 +28,25 @@ export const useWebRTC = () => {
   const connectWS = () => {
     return new Promise<void>((resolve, reject) => {
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-      const wsUrl = process.dev 
-        ? `ws://${window.location.hostname}:8080/ws`
-        : `${protocol}//${window.location.host}/ws`
-      
-      console.log('[WebRTC] Connecting to WebSocket:', wsUrl)
+
+      // Get or create stable UserID for refresh persistence
+      let persistentId = localStorage.getItem('chat_user_id')
+      if (!persistentId) {
+        persistentId = crypto.randomUUID()
+        localStorage.setItem('chat_user_id', persistentId)
+      }
+
+      const host = process.dev ? `${window.location.hostname}:8080` : window.location.host
+      const wsUrl = `${protocol}//${host}/ws?userId=${persistentId}`
+
+      console.log('[WebRTC] Connecting to WebSocket with ID:', persistentId)
       ws = new WebSocket(wsUrl)
 
       ws.onopen = () => {
         console.log('[WebRTC] WebSocket connected')
         resolve()
       }
-      
+
       ws.onerror = (err) => {
         console.error('[WebRTC] WebSocket error:', err)
         reject(err)
@@ -48,7 +55,7 @@ export const useWebRTC = () => {
       ws.onmessage = async (event) => {
         const msg = JSON.parse(event.data)
         console.log('[WebRTC] Received message:', msg.type, msg.from || '')
-        
+
         switch (msg.type) {
           case 'welcome':
             console.log('[WebRTC] Your UserID:', msg.payload.user_id)
@@ -74,13 +81,23 @@ export const useWebRTC = () => {
               store.addPeer(msg.payload.peerId)
             }
             break
-            case 'error':
+          case 'peer_left':
+            if (msg.payload.roomId === store.roomId) {
+              console.log('[WebRTC] Peer left:', msg.payload.peerId)
+              if (peerConnections[msg.payload.peerId]) {
+                peerConnections[msg.payload.peerId].close()
+                delete peerConnections[msg.payload.peerId]
+              }
+              store.removePeer(msg.payload.peerId)
+            }
+            break
+          case 'error':
             console.error('[WebRTC] Server error:', msg.payload)
             if (msg.payload === 'room_full') {
               store.setError('This room is full (max 5 people).')
             }
             break
-            case 'signal':
+          case 'signal':
             handleSignal(msg)
             break
         }

@@ -47,11 +47,17 @@ func (h *Handler) listenRoomNotifications() {
 	}
 
 	for n := range ch {
-		if n.Type == "join" {
+		// Only notify if it's a join or leave
+		if n.Type == "join" || n.Type == "leave" {
 			h.mu.RLock()
 			for _, send := range h.clients {
+				msgType := "peer_joined"
+				if n.Type == "leave" {
+					msgType = "peer_left"
+				}
+
 				msg, _ := json.Marshal(models.Message{
-					Type: "peer_joined",
+					Type: msgType,
 					Payload: mustMarshal(struct {
 						PeerID string `json:"peerId"`
 						RoomID string `json:"roomId"`
@@ -97,7 +103,13 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID := domain.UserID(uuid.New().String())
+	// Use provided userId from query param for session stability (handles refreshes)
+	providedID := r.URL.Query().Get("userId")
+	if providedID == "" {
+		providedID = uuid.New().String()
+	}
+	userID := domain.UserID(providedID)
+	
 	ctx, cancel := context.WithCancel(r.Context())
 	defer cancel()
 
