@@ -43,16 +43,21 @@ export const useWebRTC = () => {
       
       switch (msg.type) {
         case 'welcome':
+          console.log('[WebRTC] Your UserID:', msg.payload.user_id)
           store.setUserId(msg.payload.user_id)
           break
         case 'joined_room':
+          console.log('[WebRTC] Joined room:', msg.payload.room_id, 'with peers:', msg.payload.peers)
           store.setJoined(msg.payload.room_id)
-          if (msg.payload.peers) {
-            for (const peerId of msg.payload.peers) {
-              if (peerId !== store.userId) {
-                await initiateCall(peerId)
+          if (msg.payload.peers && msg.payload.peers.length > 0) {
+            // Wait 500ms to ensure others are ready for signaling
+            setTimeout(async () => {
+              for (const peerId of msg.payload.peers) {
+                if (peerId !== store.userId) {
+                  await initiateCall(peerId)
+                }
               }
-            }
+            }, 500)
           }
           break
         case 'peer_joined':
@@ -70,6 +75,7 @@ export const useWebRTC = () => {
 
   const initiateCall = async (peerId: string) => {
     console.log('[WebRTC] Initiating call to:', peerId)
+    console.log('[WebRTC] Using ICE Servers:', iceServers)
     store.addPeer(peerId)
     const pc = createPeerConnection(peerId)
     const offer = await pc.createOffer()
