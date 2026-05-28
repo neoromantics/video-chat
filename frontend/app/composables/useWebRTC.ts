@@ -29,11 +29,12 @@ export const useWebRTC = () => {
     return new Promise<void>((resolve, reject) => {
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
 
-      // Get or create stable UserID for refresh persistence
-      let persistentId = localStorage.getItem('chat_user_id')
+      // Use sessionStorage for refresh persistence within a single tab
+      // This allows multi-tab testing on the same browser (unique ID per tab)
+      let persistentId = sessionStorage.getItem('chat_user_id')
       if (!persistentId) {
         persistentId = crypto.randomUUID()
-        localStorage.setItem('chat_user_id', persistentId)
+        sessionStorage.setItem('chat_user_id', persistentId)
       }
 
       const host = process.dev ? `${window.location.hostname}:8080` : window.location.host
