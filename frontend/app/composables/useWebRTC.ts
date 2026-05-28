@@ -17,10 +17,11 @@ export const useWebRTC = () => {
 
   const init = async () => {
     try {
+      console.log('[WebRTC] Initializing media...')
       store.localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true })
       connectWS()
     } catch (err) {
-      console.error('Media error', err)
+      console.error('[WebRTC] Media error:', err)
     }
   }
 
@@ -30,10 +31,16 @@ export const useWebRTC = () => {
       ? `ws://${window.location.hostname}:8080/ws`
       : `${protocol}//${window.location.host}/ws`
     
+    console.log('[WebRTC] Connecting to WebSocket:', wsUrl)
     ws = new WebSocket(wsUrl)
+
+    ws.onopen = () => console.log('[WebRTC] WebSocket connected')
+    ws.onerror = (err) => console.error('[WebRTC] WebSocket error:', err)
 
     ws.onmessage = async (event) => {
       const msg = JSON.parse(event.data)
+      console.log('[WebRTC] Received message:', msg.type, msg.from || '')
+      
       switch (msg.type) {
         case 'welcome':
           store.setUserId(msg.payload.user_id)
@@ -50,9 +57,8 @@ export const useWebRTC = () => {
           break
         case 'peer_joined':
           if (msg.payload.roomId === store.roomId && msg.payload.peerId !== store.userId) {
+            console.log('[WebRTC] New peer joined:', msg.payload.peerId)
             store.addPeer(msg.payload.peerId)
-            // Note: The joiner is the one who initiates the call. 
-            // Existing peers just wait for the offer.
           }
           break
         case 'signal':
@@ -60,18 +66,19 @@ export const useWebRTC = () => {
           break
       }
     }
-
   }
 
   const initiateCall = async (peerId: string) => {
+    console.log('[WebRTC] Initiating call to:', peerId)
     store.addPeer(peerId)
     const pc = createPeerConnection(peerId)
     const offer = await pc.createOffer()
     await pc.setLocalDescription(offer)
-    sendSignal(peerId, { type: 'offer', sdp: offer.sdp })
+    sendSignal(peerId, offer)
   }
 
   const createPeerConnection = (peerId: string) => {
+    console.log('[WebRTC] Creating PeerConnection for:', peerId)
     if (peerConnections[peerId]) peerConnections[peerId].close()
     
     const pc = new RTCPeerConnection({ iceServers })
@@ -83,7 +90,12 @@ export const useWebRTC = () => {
       }
     }
 
+    pc.oniceconnectionstatechange = () => {
+      console.log(`[WebRTC] ICE state (${peerId}):`, pc.iceConnectionState)
+    }
+
     pc.ontrack = (event) => {
+      console.log('[WebRTC] Received remote track from:', peerId)
       store.updatePeerStream(peerId, event.streams[0])
     }
 
@@ -101,15 +113,19 @@ export const useWebRTC = () => {
     let pc = peerConnections[from]
 
     if (payload.type === 'offer') {
+      console.log('[WebRTC] Handling offer from:', from)
       pc = createPeerConnection(from)
       await pc.setRemoteDescription(new RTCSessionDescription(payload))
       const answer = await pc.createAnswer()
       await pc.setLocalDescription(answer)
-      sendSignal(from, { type: 'answer', sdp: answer.sdp })
+      sendSignal(from, answer)
     } else if (payload.type === 'answer') {
-      await pc.setRemoteDescription(new RTCSessionDescription(payload))
+      console.log('[WebRTC] Handling answer from:', from)
+      if (pc) await pc.setRemoteDescription(new RTCSessionDescription(payload))
     } else if (payload.type === 'candidate') {
-      if (pc) await pc.addIceCandidate(new RTCIceCandidate(payload.candidate))
+      if (pc && payload.candidate) {
+        await pc.addIceCandidate(new RTCIceCandidate(payload.candidate))
+      }
     }
   }
 
@@ -121,6 +137,7 @@ export const useWebRTC = () => {
 
   const join = (roomId: string) => {
     if (ws?.readyState === WebSocket.OPEN) {
+      console.log('[WebRTC] Joining room:', roomId || 'random')
       ws.send(JSON.stringify({ type: 'join', payload: { roomId } }))
     }
   }

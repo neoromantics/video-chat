@@ -1,0 +1,60 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: coturn
+spec:
+  selector:
+    matchLabels:
+      app: coturn
+  template:
+    metadata:
+      labels:
+        app: coturn
+    spec:
+      hostNetwork: true # Required for TURN to bind to VM ports 3478
+      containers:
+      - name: coturn
+        image: coturn/coturn
+        command:
+          - "turnserver"
+          - "--lt-cred-mech"
+          - "--fingerprint"
+          - "--user=$(TURN_USERNAME):$(TURN_PASSWORD)"
+          - "--realm=vcm-51101.vm.duke.edu"
+          - "--log-file=stdout"
+          - "--external-ip=$(EXTERNAL_IP)"
+        env:
+        - name: TURN_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: chat-secrets
+              key: turn-username
+        - name: TURN_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: chat-secrets
+              key: turn-password
+        - name: EXTERNAL_IP
+          value: "vcm-51101.vm.duke.edu" # Resolution will happen at runtime or can be static IP
+        ports:
+        - containerPort: 3478
+          protocol: UDP
+        - containerPort: 3478
+          protocol: TCP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: coturn
+spec:
+  selector:
+    app: coturn
+  ports:
+  - port: 3478
+    targetPort: 3478
+    protocol: UDP
+    name: turn-udp
+  - port: 3478
+    targetPort: 3478
+    protocol: TCP
+    name: turn-tcp
