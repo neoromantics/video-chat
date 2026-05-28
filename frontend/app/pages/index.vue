@@ -37,29 +37,21 @@ const handleRandom = () => {
           <input
             v-model="roomInput"
             type="text"
-            placeholder="Room Number (optional)"
+            placeholder="Room ID (e.g. 123)"
             class="px-4 py-2 bg-gray-50 border border-gray-200 rounded text-sm focus:outline-none focus:border-gray-400 transition-colors w-full md:w-64"
           />
-          <div class="flex gap-2 w-full md:w-auto">
-            <button
-              @click="handleJoin"
-              class="flex-1 md:flex-none px-6 py-2 bg-gray-950 text-white text-sm font-medium rounded hover:bg-gray-800 transition-colors"
-            >
-              Join Room
-            </button>
-            <button
-              @click="handleRandom"
-              class="flex-1 md:flex-none px-6 py-2 bg-white border border-gray-200 text-gray-600 text-sm font-medium rounded hover:bg-gray-50 transition-colors"
-            >
-              Random
-            </button>
-          </div>
+          <button
+            @click="handleJoin"
+            class="w-full md:w-auto px-8 py-2 bg-gray-950 text-white text-sm font-medium rounded hover:bg-gray-800 transition-colors"
+          >
+            Join Room
+          </button>
         </div>
 
         <div v-else class="flex items-center gap-4">
           <div class="flex flex-col items-end">
-            <span class="text-xs uppercase tracking-widest text-gray-400 font-semibold">Room</span>
-            <span class="text-sm font-medium text-gray-700">{{ store.roomId || 'Random' }}</span>
+            <span class="text-xs uppercase tracking-widest text-gray-400 font-semibold text-[9px]">Active Room</span>
+            <span class="text-sm font-medium text-gray-700">{{ store.roomId }}</span>
           </div>
           <button
             @click="cleanup"
@@ -71,7 +63,7 @@ const handleRandom = () => {
       </header>
 
       <main>
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-8">
           <!-- Local Video -->
           <div class="col-span-1">
             <VideoPlayer :stream="store.localStream" label="You" mirrored muted />
@@ -85,8 +77,8 @@ const handleRandom = () => {
           </template>
         </div>
 
-        <div v-if="!store.isJoined" class="mt-12 p-12 border border-dashed border-gray-100 rounded-lg text-center">
-          <p class="text-sm text-gray-400">Select a room or go random to start chatting.</p>
+        <div v-if="!store.isJoined" class="mt-24 text-center">
+          <p class="text-xs uppercase tracking-[0.3em] text-gray-300 font-medium">Enter a room ID to begin</p>
         </div>
       </main>
 

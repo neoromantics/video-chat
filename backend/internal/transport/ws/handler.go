@@ -50,12 +50,6 @@ func (h *Handler) listenRoomNotifications() {
 		if n.Type == "join" {
 			h.mu.RLock()
 			for _, send := range h.clients {
-				// We need to know which room each local client is in.
-				// Let's optimize this by adding a room field to our local state if needed.
-				// For now, let's keep it simple: we broadcast to ALL local clients, 
-				// and they'll ignore it if they aren't in that room.
-				// (Better: send only to clients in room n.RoomID)
-				
 				msg, _ := json.Marshal(models.Message{
 					Type: "peer_joined",
 					Payload: mustMarshal(struct {
@@ -73,6 +67,28 @@ func (h *Handler) listenRoomNotifications() {
 	}
 }
 
+func (h *Handler) listenForSignals(userID domain.UserID, send chan []byte) {
+	ctx := context.Background()
+	ch, err := h.svc.ListenSignals(ctx, userID)
+	if err != nil {
+		h.logger.Error("failed to listen for signals", "error", err)
+		return
+	}
+
+	for sig := range ch {
+		msg := models.Message{
+			Type:    "signal",
+			From:    string(sig.From),
+			Payload: sig.Payload,
+		}
+		data, _ := json.Marshal(msg)
+		select {
+		case send <- data:
+		default:
+			h.logger.Warn("signal buffer full, dropping", "user", userID)
+		}
+	}
+}
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader.Upgrade(w, r, nil)
@@ -104,13 +120,10 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	})
 	send <- welcome
 
-	signals, err := h.svc.ListenSignals(ctx, userID)
-	if err != nil {
-		conn.Close()
-		return
-	}
+	// Start signaling listener
+	go h.listenForSignals(userID, send)
 
-	go h.writePump(conn, send, signals, cancel)
+	go h.writePump(conn, send, cancel)
 	h.readPump(ctx, userID, conn, send)
 }
 
@@ -145,7 +158,6 @@ func (h *Handler) readPump(ctx context.Context, userID domain.UserID, conn *webs
 			}
 			currentRoom = roomID
 			
-			// Notify other nodes
 			h.svc.NotifyJoin(ctx, roomID, userID)
 
 			resp, _ := json.Marshal(models.Message{
@@ -157,7 +169,6 @@ func (h *Handler) readPump(ctx context.Context, userID domain.UserID, conn *webs
 			})
 			send <- resp
 
-
 		case "signal":
 			h.svc.SendSignal(ctx, domain.Signal{
 				From:    userID,
@@ -168,7 +179,7 @@ func (h *Handler) readPump(ctx context.Context, userID domain.UserID, conn *webs
 	}
 }
 
-func (h *Handler) writePump(conn *websocket.Conn, send <-chan []byte, signals <-chan domain.Signal, cancel context.CancelFunc) {
+func (h *Handler) writePump(conn *websocket.Conn, send <-chan []byte, cancel context.CancelFunc) {
 	ticker := time.NewTicker(20 * time.Second)
 	defer func() {
 		ticker.Stop()
@@ -183,16 +194,6 @@ func (h *Handler) writePump(conn *websocket.Conn, send <-chan []byte, signals <-
 				return
 			}
 			conn.WriteMessage(websocket.TextMessage, msg)
-		case sig, ok := <-signals:
-			if !ok {
-				return
-			}
-			payload, _ := json.Marshal(models.Message{
-				Type: "signal",
-				From: string(sig.From),
-				Payload: sig.Payload,
-			})
-			conn.WriteMessage(websocket.TextMessage, payload)
 		case <-ticker.C:
 			if err := conn.WriteMessage(websocket.PingMessage, nil); err != nil {
 				return
