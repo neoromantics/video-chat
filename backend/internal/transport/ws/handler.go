@@ -154,6 +154,13 @@ func (h *Handler) readPump(ctx context.Context, userID domain.UserID, conn *webs
 			peers, err := h.svc.Join(ctx, roomID, userID)
 			if err != nil {
 				h.logger.Error("join failed", "error", err)
+				if err == domain.ErrRoomFull {
+					resp, _ := json.Marshal(models.Message{
+						Type:    "error",
+						Payload: json.RawMessage(`"room_full"`),
+					})
+					send <- resp
+				}
 				continue
 			}
 			currentRoom = roomID

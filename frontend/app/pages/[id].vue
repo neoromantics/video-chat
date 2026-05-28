@@ -15,6 +15,13 @@ onBeforeUnmount(() => {
   cleanup()
 })
 
+watch(() => store.error, (newError) => {
+  if (newError) {
+    alert(newError)
+    navigateTo('/')
+  }
+})
+
 const handleLeave = () => {
   navigateTo('/')
 }

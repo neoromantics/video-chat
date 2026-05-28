@@ -12,19 +12,25 @@ export const useChatStore = defineStore('chat', {
     isJoined: false,
     localStream: null as MediaStream | null,
     peers: [] as Peer[],
+    error: null as string | null,
   }),
   actions: {
     setUserId(id: string) {
       this.userId = id
     },
+    setError(msg: string | null) {
+      this.error = msg
+    },
     setJoined(roomId: string) {
       this.roomId = roomId
       this.isJoined = true
+      this.error = null
     },
     resetRoom() {
       this.roomId = null
       this.isJoined = false
       this.peers = []
+      this.error = null
     },
     addPeer(peerId: string) {
       if (!this.peers.find(p => p.id === peerId)) {

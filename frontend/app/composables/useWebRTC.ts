@@ -74,7 +74,13 @@ export const useWebRTC = () => {
               store.addPeer(msg.payload.peerId)
             }
             break
-          case 'signal':
+            case 'error':
+            console.error('[WebRTC] Server error:', msg.payload)
+            if (msg.payload === 'room_full') {
+              store.setError('This room is full (max 5 people).')
+            }
+            break
+            case 'signal':
             handleSignal(msg)
             break
         }
