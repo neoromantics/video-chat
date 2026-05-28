@@ -123,8 +123,13 @@ export const useWebRTC = () => {
       console.log('[WebRTC] Handling answer from:', from)
       if (pc) await pc.setRemoteDescription(new RTCSessionDescription(payload))
     } else if (payload.type === 'candidate') {
+      console.log('[WebRTC] Handling candidate from:', from)
       if (pc && payload.candidate) {
-        await pc.addIceCandidate(new RTCIceCandidate(payload.candidate))
+        try {
+          await pc.addIceCandidate(new RTCIceCandidate(payload.candidate))
+        } catch (e) {
+          console.error('[WebRTC] Error adding candidate:', e)
+        }
       }
     }
   }
@@ -137,8 +142,9 @@ export const useWebRTC = () => {
 
   const join = (roomId: string) => {
     if (ws?.readyState === WebSocket.OPEN) {
-      console.log('[WebRTC] Joining room:', roomId || 'random')
-      ws.send(JSON.stringify({ type: 'join', payload: { roomId } }))
+      const id = roomId || 'lobby'
+      console.log('[WebRTC] Joining room:', id)
+      ws.send(JSON.stringify({ type: 'join', payload: { roomId: id } }))
     }
   }
 
