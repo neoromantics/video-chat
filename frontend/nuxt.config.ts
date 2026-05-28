@@ -10,7 +10,7 @@ export default defineNuxtConfig({
     head: {
       title: 'Video Chat',
       meta: [
-        { 'http-equiv': 'Content-Security-Policy', content: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' wss://vcm-51101.vm.duke.edu ws://localhost:8080 stun:stun.l.google.com:19302 turn:vcm-51101.vm.duke.edu:3478; media-src 'self' blob:;" }
+        { 'http-equiv': 'Content-Security-Policy', content: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' wss://vcm-51101.vm.duke.edu ws://localhost:8080 *.l.google.com:* vcm-51101.vm.duke.edu:*; media-src 'self' blob:;" }
       ],
       link: [
         { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' }
