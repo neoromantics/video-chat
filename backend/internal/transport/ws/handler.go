@@ -49,7 +49,7 @@ func (h *Handler) listenRoomNotifications() {
 	for n := range ch {
 		if n.Type == "join" {
 			h.mu.RLock()
-			for userID, send := range h.clients {
+			for _, send := range h.clients {
 				// We need to know which room each local client is in.
 				// Let's optimize this by adding a room field to our local state if needed.
 				// For now, let's keep it simple: we broadcast to ALL local clients, 
